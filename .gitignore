@@ -1,11 +1,11 @@
-# Compiled
-*.elc
-
-# Packaging
-.cask
-
-# Backup files
 *~
-
-# Undo-tree save-files
-*.~undo-tree
+elpa
+eshell
+auto-save-list
+ido-last
+projectile*
+recentf
+request
+smex-items
+snippets
+transient
