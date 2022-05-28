@@ -35,6 +35,14 @@
   (expand-file-name
    (format "emacs%d" (user-uid)) temporary-file-directory))
 
+;; is the root folder for the current profile
+(defconst profile-dir
+  (expand-file-name user-emacs-directory))
+
+;; is the full path of the custom.el file for the profile
+(defconst profile-custom-file-path
+  (expand-file-name "custom.el" profile-dir))
+
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; custom functions ;;
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -48,7 +56,6 @@
 (defun reload-init-file ()
   (interactive)
   (load-file user-init-file))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; basic emacs config ;;
@@ -67,13 +74,15 @@
   ;; enhance title bar text format
   (setq ring-bell-function 'ignore)
   ;; set custom file for emacs!
-  (setq custom-file "~/.emacsp/sepi-v2/custom.el")
+  (setq custom-file profile-custom-file-path)
   ;; get rid of lock files
   (setq create-lockfiles nil)
   ;; show line number
   (setq line-number-mode t)
   ;; show column number
   (setq column-number-mode t)
+  ;; do not resize mini buffer
+  (setq resize-mini-windows nil)
   
   ;; disable line wrapping
   (setq-default truncate-lines t)
@@ -109,7 +118,9 @@
   ;; font face
   (set-face-attribute 'default nil :family "Cascadia Code" :height 140 :weight 'normal )
   ;; theme |> WARNING: this is installed manually <|
-  (load-theme 'plan9 t)
+  ;; (load-theme 'plan9 t)
+  ;; (load-theme 'sanityinc-solarized-light)
+  (load-theme 'sanityinc-tomorrow-day)
 
   :config
   ;; if custom file does not exist create one
@@ -136,31 +147,51 @@
   ;; DONE
   )
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; all external packages goes here  ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; command log mode
+;; good for understanding what goes under the hood
+(use-package command-log-mode
+  :ensure t)
 
 ;; use system shell inside emacs
 (use-package exec-path-from-shell
   :ensure t)
 
-;; setup ibuffer
+;; setup ibuffer, better buffer listing and chage
 (use-package ibuffer
   :diminish ibuffer-mode
   :bind (("C-x C-b" . ibuffer)))
 
+;; config ido, interactive do
+(use-package ido
+  :diminish ido-mode
+  :config
+  (setq ido-separator "  ≡  ") ;;✘✘✘
+  (setq ido-enable-flex-matching t)
+  (ido-mode 1))
+
+;; flx, fuzzy matching
+(use-package flx-ido
+  :ensure t
+  :diminish flx-ido-mode
+  :config
+  (setq flx-ido-mode 1)
+  (setq ido-enable-flex-matching t)
+  (setq ido-use-faces nil))
+  
+;; smex, better M-x
+(use-package smex
+  :ensure t
+  :config (smex-initialize)
+  :bind (("M-x" . 'smex)
+	 ("M-X" . 'smex-major-mode-command)))
+
 ;; better window jump. C-x w number
 (use-package winum
   :config (winum-mode))
-
-;; better terminal emulator
-(use-package vterm
-  :ensure t)
-
-;; 256 terminal color
-(use-package eterm-256color
-  :ensure t)
 
 ;; crux
 (use-package crux
@@ -179,30 +210,6 @@
   :ensure t
   :diminish avy-mode
   :bind (("C-'" . avy-goto-char)))
-
-;; config ido, interactive do
-(use-package ido
-  :diminish ido-mode
-  :config
-  (setq ido-enable-flex-matching t)
-  (ido-mode 1))
-
-;; flx, fuzzy matching
-(use-package flx-ido
-  :ensure t
-  :diminish flx-ido-mode
-  :config
-  (setq flx-ido-mode 1)
-  (setq ido-enable-flex-matching t)
-  (setq ido-use-faces nil))
-  
-
-;; smex, better M-x
-(use-package smex
-  :ensure t
-  :config (smex-initialize)
-  :bind (("M-x" . 'smex)
-	 ("M-X" . 'smex-major-mode-command)))
 
 ;; which-key ;;TODO: do i really need it?
 (use-package which-key
@@ -262,7 +269,43 @@
   :ensure nil
   :diminish dired-mode
   :hook (dired-mode . dired-hide-details-mode)
-  :config (setq dired-use-ls-dired nil))
+  :bind ("C-x C-d" . dired)
+  :config
+  (defun sepi-dired-rename-buffer ()
+  (when (not (eq nil dired-buffers))
+    (when (not (eq nil (car dired-buffers)))
+      (when (not (eq nil (cdr (car dired-buffers))))
+	(rename-buffer "*DIRED*" (cdr (car dired-buffers)))))))
+  (add-hook 'dired-after-readin-hook 'sepi-dired-rename-buffer)
+  (add-hook 'dired-load-hook 'sepi-dired-rename-buffer)
+  (setq dired-kill-when-opening-new-dired-buffer +1)
+  (setq dired-use-ls-dired nil))
+
+;; dired-narrow, filter list
+(use-package dired-narrow
+  :ensure t
+  :after dired
+  :bind (:map dired-mode-map
+              ("/" . dired-narrow)))
+
+;; dired-x to get rid of .DS_Store
+(use-package dired-x
+  :ensure nil
+  :after dired
+  :config
+  (progn
+    (setq dired-omit-verbose nil)
+    (add-hook 'dired-mode-hook #'dired-omit-mode)
+    (setq dired-omit-files
+	  (concat dired-omit-files "\\|^.DS_STORE$\\|^.projectile$"))))
+
+;; dired+ 
+;; (use-package dired+
+;;   :load-path "vendor"
+;;   :after dired
+;;   :config
+;;   (diredp-toggle-find-file-reuse-dir 1))
+
 
 ;; ctrlf, better buffer local search
 (use-package ctrlf
@@ -315,6 +358,13 @@
   (setq company-idle-delay nil)
   (setq company-minimum-prefix-length 1))
 
+;; keycast, show key pressed in modeline
+(use-package keycast
+  :ensure t)
+
+;; magit
+(use-package magit
+  :ensure t)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; this section is all about languages modes  ;;
@@ -400,7 +450,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (use-package ligature
-  :load-path "~/.emacsp/sepi-v2/ligature"
+  :load-path "vendor"
   :config
   (ligature-set-ligatures 't '("www"))
   (ligature-set-ligatures 'eww-mode '("ff" "fi" "ffi"))
