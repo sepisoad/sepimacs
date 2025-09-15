@@ -1,0 +1,91 @@
+;;; sepi-cursor-ring.el --- Custom cursor location ring navigation -*- lexical-binding: t -*-
+
+;;; Commentary:
+;; Provides navigation through a custom cursor location ring.
+
+;;; Code:
+(require 'pulse)  ;; Add this to use the pulse functionality
+
+(defvar-local sepi-cursor-ring nil
+  "Per-buffer ring of cursor locations.")
+(defvar-local sepi-cursor-ring-index nil
+  "Current index in sepi-cursor-ring.")
+(defconst sepi-cursor-ring-max 50
+  "Maximum size of the cursor-location-ring.")
+
+(defun sepi-add-to-cursor-ring ()
+  "Add current point to the cursor-location-ring if it's not already present."
+  (interactive)
+  (unless (ring-p sepi-cursor-ring)
+    (setq sepi-cursor-ring (make-ring sepi-cursor-ring-max)))
+  (let ((current-pos (point))
+        (ring-list (ring-elements sepi-cursor-ring)))
+    (if (seq-some (lambda (marker)
+                    (and marker (equal (marker-position marker) current-pos)))
+                  ring-list)
+        (message "Position %d already in cursor ring (size: %d)"
+                 current-pos (ring-length sepi-cursor-ring))
+      (ring-insert sepi-cursor-ring (point-marker))
+      (setq sepi-cursor-ring-index 0)
+      (message "Added position #%d" (ring-length sepi-cursor-ring)))))
+
+(defun sepi-delete-current-cursor-location ()
+  "Delete the current active location from the cursor-location-ring."
+  (interactive)
+  (unless (ring-p sepi-cursor-ring)
+    (setq sepi-cursor-ring (make-ring sepi-cursor-ring-max))
+    (setq sepi-cursor-ring-index 0))
+  (if (ring-empty-p sepi-cursor-ring)
+      (message "Cursor ring is empty, nothing to delete")
+    (let ((len (ring-length sepi-cursor-ring)))
+      (when (or (null sepi-cursor-ring-index)
+                (< sepi-cursor-ring-index 0)
+                (>= sepi-cursor-ring-index len))
+        (setq sepi-cursor-ring-index 0))
+      (let ((deleted-marker (ring-remove sepi-cursor-ring sepi-cursor-ring-index)))
+        (if (> len 1)
+            (progn
+              (setq sepi-cursor-ring-index (mod sepi-cursor-ring-index (1- len)))
+              (message "Deleted position at %d (new size: %d, index: %d)"
+                       (marker-position deleted-marker) (ring-length sepi-cursor-ring) sepi-cursor-ring-index))
+          (setq sepi-cursor-ring-index 0)
+          (message "Deleted last position, ring now empty"))))))
+
+(defun sepi-reset-cursor-ring ()
+  "Reset the cursor-location-ring to empty."
+  (interactive)
+  (setq sepi-cursor-ring (make-ring sepi-cursor-ring-max))
+  (setq sepi-cursor-ring-index 0)
+  (message "Cursor ring reset to empty"))
+
+(defun sepi-navigate-cursor-ring (direction)
+  "Navigate cursor-location-ring forward (positive) or backward (negative)."
+  (interactive "P")
+  (unless (ring-p sepi-cursor-ring)
+    (setq sepi-cursor-ring (make-ring sepi-cursor-ring-max))
+    (setq sepi-cursor-ring-index 0))
+  (if (ring-empty-p sepi-cursor-ring)
+      (message "Cursor ring is empty")
+    (let ((len (ring-length sepi-cursor-ring)))
+      (when (or (null sepi-cursor-ring-index)
+                (< sepi-cursor-ring-index 0)
+                (>= sepi-cursor-ring-index len))
+        (setq sepi-cursor-ring-index 0)
+        (message "Reset index to 0 (len: %d)" len))
+      (let* ((dir (if (eq direction 'backward) -1
+                    (if (numberp direction) direction 1)))
+             (current-index sepi-cursor-ring-index)
+             (new-index (mod (+ current-index dir) len)))
+        (setq sepi-cursor-ring-index new-index)
+        (let ((marker (ring-ref sepi-cursor-ring sepi-cursor-ring-index)))
+          (if (and marker (marker-position marker))
+              (progn
+                (goto-char (marker-position marker))
+                (recenter nil)  ;; Center the window
+                (pulse-momentary-highlight-one-line (point))  ;; Pulse the line
+                (message "Moved to position %d/%d"
+                         (1+ sepi-cursor-ring-index) len))
+            (message "Marker at index %d is invalid" sepi-cursor-ring-index)))))))
+
+(provide 'sepi-cursor-ring)
+;;; sepi-cursor-ring.el ends here

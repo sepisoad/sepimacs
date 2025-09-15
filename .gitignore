@@ -1,0 +1,17 @@
+# dirs
+auto-save-list
+ctags
+elpa
+transient
+tree-sitter
+url
+
+# hidden files
+.DS_Store
+.mc-lists.el
+.custom.el
+
+# regular files
+custom.el
+dead-config.el
+projects
