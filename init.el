@@ -1,5 +1,3 @@
-;;; init.el --- Personal Emacs Configuration -*- lexical-binding: t -*-
-
 ;;; Package Management
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
@@ -152,9 +150,10 @@
   (sepi-smart-bol-mode 1)
   :bind (("C-a" . sepi-smart-bol)))
 
-;; Configure sepi-bitwise module
+(use-package sepi-c-comment-box
+  :ensure nil)
+
 (use-package sepi-bitwise
-  ;; :load-path "~/.emacs.d/sepi"
   :ensure nil)
 
 (use-package dired
@@ -238,7 +237,8 @@
               ("h" . rg-menu))
   :config
   (rg-enable-default-bindings)
-	(define-key rg-mode-map (kbd "e") #'wgrep-change-to-wgrep-mode)
+  (define-key rg-mode-map (kbd "e") #'wgrep-change-to-wgrep-mode)
+  (setq rg-regexp nil)
   (setq display-buffer-alist
         '(("\\*rg\\*" display-buffer-reuse-window display-buffer-same-window))))
 
